@@ -17,13 +17,10 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
-	"time"
 
-	"github.com/nightlyone/lockfile"
 	"github.com/shirou/gopsutil/v3/process"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -78,49 +75,6 @@ func GetProcs(pid int) (res []int, err error) {
 		return
 	}
 	return GetProcsFromProc(pid)
-}
-func sysvinitStop() error {
-	os.RemoveAll(crontabFile)
-	file, err := lockfile.New(agentPidFile)
-	if err != nil {
-		return err
-	}
-	p, err := file.GetOwner()
-	if err == nil {
-		var pids []int
-		pids, err := GetProcs(p.Pid)
-		if err != nil {
-			return err
-		}
-		for _, pid := range pids {
-			syscall.Kill(-pid, syscall.SIGTERM)
-		}
-		ticker := time.NewTicker(time.Millisecond * time.Duration(100))
-		defer ticker.Stop()
-		timeout := time.NewTimer(time.Second * time.Duration(30))
-		i := 0
-		defer timeout.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				pids = CheckPids(pids)
-				if len(pids) == 0 {
-					return nil
-				}
-				if i%50 == 0 {
-					fmt.Printf("wait %v subprocess to exit...\n", len(pids))
-				}
-				i++
-			case <-timeout.C:
-				fmt.Fprintln(os.Stderr, "stop timeout, will kill all subprocess...")
-				for _, pid := range pids {
-					syscall.Kill(-pid, syscall.SIGKILL)
-				}
-				return nil
-			}
-		}
-	}
-	return nil
 }
 
 // stopCmd represents the stop command

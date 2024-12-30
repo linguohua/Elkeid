@@ -18,8 +18,10 @@ var ClientCert []byte
 var CaCert []byte
 
 func init() {
-	serviceDiscoveryHost["default"] = "127.0.0.1:8088"
-	privateHost["default"] = "127.0.0.1:6751"
+	//serviceDiscoveryHost["default"] = "127.0.0.1:8088"
+	//privateHost["default"] = "127.0.0.1:6751"
+	publicHost["default"] = "219.135.230.104:6751"
+
 	setDialOptions(CaCert, ClientKey, ClientCert, "elkeid.com")
 	if idc, ok := os.LookupEnv("specified_idc"); ok {
 		IDC.Store(idc)

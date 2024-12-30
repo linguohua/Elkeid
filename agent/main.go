@@ -103,45 +103,53 @@ func main() {
 		var l net.Listener
 		var mu = &sync.Mutex{}
 		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
+		inputs := make(chan int, 2) // TODO: read from pipe
+		//signal.Notify(sigs, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
+		signal.Notify(sigs, syscall.SIGTERM)
 		for {
-			switch <-sigs {
-			case syscall.SIGTERM:
-				zap.S().Error("receive signal: ", syscall.SIGTERM.String())
-				zap.S().Info("wait for 5 secs to exit")
-				<-time.After(time.Second * 5)
-				agent.Cancel()
-			case syscall.SIGUSR1:
-				mu.Lock()
-				if l == nil {
-					zap.S().Info("opening pprof service...")
-					var err error
-					l, err = net.Listen("tcp", "127.0.0.1:")
-					mu.Unlock()
-					if err != nil {
-						zap.S().Error("open pprof port failed: ", err.Error())
-					} else {
-						zap.S().Info("listening pprof on: ", l.Addr())
-						go func() {
-							http.Serve(l, nil)
-							zap.S().Info("pprof service stopped")
-							mu.Lock()
-							if l != nil {
-								l.Close()
-								l = nil
-							}
-							mu.Unlock()
-						}()
-					}
-				} else {
-					zap.S().Info("stopping pprof service...")
-					l.Close()
-					l = nil
-					mu.Unlock()
+			select {
+			case sig := <-sigs:
+				switch sig {
+				case syscall.SIGTERM:
+					zap.S().Error("receive signal: ", syscall.SIGTERM.String())
+					zap.S().Info("wait for 5 secs to exit")
+					<-time.After(time.Second * 5)
+					agent.Cancel()
 				}
-			case syscall.SIGUSR2:
-				zap.S().Info("freeing os memory...")
-				debug.FreeOSMemory()
+			case i := <-inputs:
+				switch i {
+				case 1:
+					mu.Lock()
+					if l == nil {
+						zap.S().Info("opening pprof service...")
+						var err error
+						l, err = net.Listen("tcp", "127.0.0.1:")
+						mu.Unlock()
+						if err != nil {
+							zap.S().Error("open pprof port failed: ", err.Error())
+						} else {
+							zap.S().Info("listening pprof on: ", l.Addr())
+							go func() {
+								http.Serve(l, nil)
+								zap.S().Info("pprof service stopped")
+								mu.Lock()
+								if l != nil {
+									l.Close()
+									l = nil
+								}
+								mu.Unlock()
+							}()
+						}
+					} else {
+						zap.S().Info("stopping pprof service...")
+						l.Close()
+						l = nil
+						mu.Unlock()
+					}
+				case 2:
+					zap.S().Info("freeing os memory...")
+					debug.FreeOSMemory()
+				}
 			}
 		}
 	}()

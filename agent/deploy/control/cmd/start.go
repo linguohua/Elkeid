@@ -16,45 +16,13 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
-	"syscall"
 
 	"github.com/nightlyone/lockfile"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
-
-func sysvinitStart() error {
-	var err error
-	// set cgroup
-	cgroup, err := NewCGroup(serviceName)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create cgroup(even named): %v\n", err.Error())
-	}
-	cmd := exec.Command(agentFile)
-	cmd.Dir = agentWorkDir
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
-	for k, v := range viper.AllSettings() {
-		cmd.Env = append(cmd.Env, k+"="+v.(string))
-	}
-	cmd.Env = append(cmd.Env, "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
-	err = cmd.Start()
-	if err != nil {
-		return err
-	}
-	// maybe no-cgroup
-	if cgroup != nil {
-		err = cgroup.AddProc(cmd.Process.Pid)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to add proc to cgroup: %v\n", err.Error())
-		}
-	}
-	return nil
-}
 
 // startCmd represents the start command
 var startCmd = &cobra.Command{
